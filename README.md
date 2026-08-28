@@ -5,6 +5,8 @@ database**. All data (Challenges and Projects) lives in the browser's `localStor
 and can be exported/imported as a JSON file. Built to be hosted for free on **GitHub
 Pages**.
 
+  #Live version : https://pranwagh11.github.io/devops-sim-core/
+
 ## What's different from the earlier full-stack prototype
 
 - No Express, no PostgreSQL, no Docker Compose. Just a static site.
