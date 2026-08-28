@@ -1,4 +1,5 @@
 {
+  
   "challenges": [
     {
       "id": "seed-challenge-1",
@@ -9,19 +10,40 @@
       "status": "published",
       "initial_state": {
         "fs": {
-          "/": { "type": "dir", "mode": "755" },
-          "/home": { "type": "dir", "mode": "755" },
-          "/home/student": { "type": "dir", "mode": "755" }
+          "/": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/home": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/home/student": {
+            "type": "dir",
+            "mode": "755"
+          }
         },
-        "users": ["student"],
+        "users": [
+          "student"
+        ],
         "currentUser": "student",
         "services": {},
         "cwd": "/home/student"
       },
       "objectives": [
-        { "type": "file_exists", "path": "/home/student/backup" },
-        { "type": "file_exists", "path": "/home/student/backup/data.txt" },
-        { "type": "file_contains", "path": "/home/student/backup/data.txt", "text": "Linux Backup" }
+        {
+          "type": "file_exists",
+          "path": "/home/student/backup"
+        },
+        {
+          "type": "file_exists",
+          "path": "/home/student/backup/data.txt"
+        },
+        {
+          "type": "file_contains",
+          "path": "/home/student/backup/data.txt",
+          "text": "Linux Backup"
+        }
       ],
       "hints": [
         "Use mkdir to create a directory.",
@@ -40,22 +62,98 @@
       "status": "published",
       "initial_state": {
         "fs": {
-          "/": { "type": "dir", "mode": "755" },
-          "/opt": { "type": "dir", "mode": "755" },
-          "/opt/deploy.sh": { "type": "file", "mode": "644", "content": "#!/bin/bash\necho deploying..." }
+          "/": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/opt": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/opt/deploy.sh": {
+            "type": "file",
+            "mode": "644",
+            "content": "#!/bin/bash\necho deploying..."
+          }
         },
-        "users": ["student"],
+        "users": [
+          "student"
+        ],
         "currentUser": "student",
         "services": {},
         "cwd": "/opt"
       },
       "objectives": [
-        { "type": "permission", "path": "/opt/deploy.sh", "mode": "755" }
+        {
+          "type": "permission",
+          "path": "/opt/deploy.sh",
+          "mode": "755"
+        }
       ],
-      "hints": ["Use chmod 755 /opt/deploy.sh"],
+      "hints": [
+        "Use chmod 755 /opt/deploy.sh"
+      ],
       "reference_snapshot": null,
       "created_at": "2026-01-01T00:00:00.000Z",
       "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "title": "make a dictionary and make a file with permission 655",
+      "description": "",
+      "difficulty": "beginner",
+      "xp": 10,
+      "initial_state": {
+        "fs": {
+          "/": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/var": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/var/log": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/var/log/app": {
+            "type": "dir",
+            "mode": "755"
+          },
+          "/var/log/app/backup.sh": {
+            "type": "file",
+            "content": "",
+            "mode": "644"
+          }
+        },
+        "users": [
+          "student"
+        ],
+        "currentUser": "student",
+        "services": {},
+        "cwd": "/"
+      },
+      "objectives": [
+        {
+          "type": "service_running",
+          "service": "nginx must running"
+        },
+        {
+          "type": "permission",
+          "path": "/var/log/app/backup.sh",
+          "mode": "655"
+        }
+      ],
+      "hints": [
+        "make cd <path>",
+        "use chmod ",
+        "use systemctl"
+      ],
+      "status": "draft",
+      "reference_snapshot": null,
+      "id": "3af1ec27-5846-4876-a7df-23d4c2b4583d",
+      "created_at": "2026-08-27T19:41:12.075Z",
+      "updated_at": "2026-08-27T19:41:12.075Z"
     }
   ],
   "projects": [
@@ -69,40 +167,112 @@
       "hosts": {
         "web01": {
           "fs": {
-            "/": { "type": "dir", "mode": "755" },
-            "/var": { "type": "dir", "mode": "755" },
-            "/var/www": { "type": "dir", "mode": "755" }
+            "/": {
+              "type": "dir",
+              "mode": "755"
+            },
+            "/var": {
+              "type": "dir",
+              "mode": "755"
+            },
+            "/var/www": {
+              "type": "dir",
+              "mode": "755"
+            }
           },
-          "users": ["student"],
+          "users": [
+            "student"
+          ],
           "currentUser": "student",
-          "services": { "nginx": { "running": false, "port": 80 } },
+          "services": {
+            "nginx": {
+              "running": false,
+              "port": 80
+            }
+          },
           "cwd": "/"
         },
         "app01": {
-          "fs": { "/": { "type": "dir", "mode": "755" } },
-          "users": ["student"],
+          "fs": {
+            "/": {
+              "type": "dir",
+              "mode": "755"
+            }
+          },
+          "users": [
+            "student"
+          ],
           "currentUser": "student",
-          "services": { "backend": { "running": false, "port": 8080 } },
+          "services": {
+            "backend": {
+              "running": false,
+              "port": 8080
+            }
+          },
           "cwd": "/"
         },
         "db01": {
-          "fs": { "/": { "type": "dir", "mode": "755" } },
-          "users": ["student"],
+          "fs": {
+            "/": {
+              "type": "dir",
+              "mode": "755"
+            }
+          },
+          "users": [
+            "student"
+          ],
           "currentUser": "student",
-          "services": { "postgres": { "running": false, "port": 5432 } },
+          "services": {
+            "postgres": {
+              "running": false,
+              "port": 5432
+            }
+          },
           "cwd": "/"
         }
       },
       "network_rules": [
-        { "from": "web01", "to": "app01", "port": 8080, "allowed": true },
-        { "from": "app01", "to": "db01", "port": 5432, "allowed": true }
+        {
+          "from": "web01",
+          "to": "app01",
+          "port": 8080,
+          "allowed": true
+        },
+        {
+          "from": "app01",
+          "to": "db01",
+          "port": 5432,
+          "allowed": true
+        }
       ],
       "objectives": [
-        { "type": "service_running", "host": "web01", "service": "nginx" },
-        { "type": "service_running", "host": "app01", "service": "backend" },
-        { "type": "service_running", "host": "db01", "service": "postgres" },
-        { "type": "network_reachable", "from": "web01", "to": "app01", "port": 8080 },
-        { "type": "network_reachable", "from": "app01", "to": "db01", "port": 5432 }
+        {
+          "type": "service_running",
+          "host": "web01",
+          "service": "nginx"
+        },
+        {
+          "type": "service_running",
+          "host": "app01",
+          "service": "backend"
+        },
+        {
+          "type": "service_running",
+          "host": "db01",
+          "service": "postgres"
+        },
+        {
+          "type": "network_reachable",
+          "from": "web01",
+          "to": "app01",
+          "port": 8080
+        },
+        {
+          "type": "network_reachable",
+          "from": "app01",
+          "to": "db01",
+          "port": 5432
+        }
       ],
       "hints": [
         "Use systemctl start <service> on each host.",
