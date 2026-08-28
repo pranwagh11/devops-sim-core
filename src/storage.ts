@@ -32,8 +32,8 @@ function nowIso(): string {
 export async function ensureSeeded(): Promise<void> {
   if (localStorage.getItem(SEEDED_KEY)) return;
   try {
-    //const base = import.meta.env.BASE_URL || "/";
-	const base = "/";
+    const base = import.meta.env.BASE_URL || "/";
+	//const base = "/";
     const res = await fetch(`${base}seed-data.json`);
     if (res.ok) {
       const seed = await res.json();
