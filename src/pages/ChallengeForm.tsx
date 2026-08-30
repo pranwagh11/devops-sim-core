@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { storage } from "../storage";
+import { useAuth } from "../auth";
 import HostBuilder, { emptyHostBuilder, HostBuilderValue } from "../components/HostBuilder";
 import ObjectiveBuilder from "../components/ObjectiveBuilder";
 import HintsBuilder from "../components/HintsBuilder";
@@ -16,12 +17,19 @@ import {
   extractObjectiveRows,
   ObjectiveRow,
 } from "../builderUtils";
-import { HostState, ObjectiveResult } from "../simcore/types";
+import { HostState, ObjectiveResult, ModuleRecord, LessonRecord } from "../simcore/types";
 
 export default function ChallengeForm() {
   const { id } = useParams();
   const isEdit = !!id;
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
+
+  const [moduleId, setModuleId] = useState("");
+  const [lessonId, setLessonId] = useState(searchParams.get("lessonId") ?? "");
+  const [modules, setModules] = useState<ModuleRecord[]>([]);
+  const [lessons, setLessons] = useState<LessonRecord[]>([]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -33,7 +41,6 @@ export default function ChallengeForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(isEdit);
 
-  // Test/publish state
   const [testStarted, setTestStarted] = useState(false);
   const [testResetToken, setTestResetToken] = useState(0);
   const [testPassed, setTestPassed] = useState(false);
@@ -43,6 +50,19 @@ export default function ChallengeForm() {
   const [testObjectives, setTestObjectives] = useState<ReturnType<typeof buildObjectives>>([]);
 
   useEffect(() => {
+    setModules(storage.listModules());
+    setLessons(storage.listLessons());
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (lessonId) {
+      const l = storage.getLesson(lessonId);
+      if (l) setModuleId(l.module_id);
+    }
+  }, [lessonId, isEdit]);
+
+  useEffect(() => {
     if (!isEdit) return;
     const c = storage.getChallenge(id!);
     if (!c) {
@@ -50,6 +70,9 @@ export default function ChallengeForm() {
       setLoading(false);
       return;
     }
+    setLessonId(c.lesson_id);
+    const l = storage.getLesson(c.lesson_id);
+    if (l) setModuleId(l.module_id);
     setTitle(c.title);
     setDescription(c.description ?? "");
     setDifficulty(c.difficulty ?? "beginner");
@@ -67,6 +90,16 @@ export default function ChallengeForm() {
     setTestPassed(c.status === "published");
     setLoading(false);
   }, [id, isEdit]);
+
+  if (role !== "admin") {
+    return (
+      <div className="page">
+        <div className="error-banner">Admin access required to create or edit challenges.</div>
+      </div>
+    );
+  }
+
+  const lessonsInModule = lessons.filter((l) => l.module_id === moduleId);
 
   const buildInitialState = (): HostState => {
     const users = parseUsers(host.usersText);
@@ -102,6 +135,10 @@ export default function ChallengeForm() {
 
   const persist = (status: "draft" | "published") => {
     setError("");
+    if (!lessonId) {
+      setError("Select a lesson for this challenge.");
+      return;
+    }
     if (!title.trim()) {
       setError("Title is required.");
       return;
@@ -117,6 +154,7 @@ export default function ChallengeForm() {
     }
 
     const payload = {
+      lesson_id: lessonId,
       title,
       description,
       difficulty,
@@ -130,7 +168,7 @@ export default function ChallengeForm() {
 
     try {
       storage.saveChallenge(isEdit ? { ...payload, id } : payload);
-      navigate("/challenges");
+      navigate(`/lessons/${lessonId}`);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -151,6 +189,23 @@ export default function ChallengeForm() {
 
       <div className="builder-form">
         <h3>1. Define</h3>
+        <div className="row">
+          <div className="field-group">
+            <label>Module</label>
+            <select value={moduleId} onChange={(e) => { setModuleId(e.target.value); setLessonId(""); }}>
+              <option value="">Select module…</option>
+              {modules.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+            </select>
+          </div>
+          <div className="field-group">
+            <label>Lesson</label>
+            <select value={lessonId} onChange={(e) => setLessonId(e.target.value)} disabled={!moduleId}>
+              <option value="">Select lesson…</option>
+              {lessonsInModule.map((l) => <option key={l.id} value={l.id}>{l.title}</option>)}
+            </select>
+          </div>
+        </div>
+
         <div className="field-group">
           <label>Title</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Create Your First Directory" />
@@ -185,8 +240,8 @@ export default function ChallengeForm() {
 
         <h3>2. Test</h3>
         <p className="help-text">
-          Load your own starting environment and objectives into a live terminal, then solve it exactly
-          as a learner would. Publish unlocks once every objective shows passed.
+          Load your own starting environment and objectives into a live terminal, then solve it
+          exactly as a learner would. Publish unlocks once every objective shows passed.
         </p>
         <button type="button" className="btn-secondary" onClick={handleLoadTest}>
           {testStarted ? "Reload Test Environment" : "Load Test Environment"}
@@ -217,15 +272,9 @@ export default function ChallengeForm() {
           </details>
         )}
         <div className="form-actions">
-          <button type="button" className="btn-secondary" onClick={() => persist("draft")}>
-            Save as Draft
-          </button>
-          <button type="button" className="btn-primary" disabled={!testPassed} onClick={() => persist("published")}>
-            Publish
-          </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate("/challenges")}>
-            Cancel
-          </button>
+          <button type="button" className="btn-secondary" onClick={() => persist("draft")}>Save as Draft</button>
+          <button type="button" className="btn-primary" disabled={!testPassed} onClick={() => persist("published")}>Publish</button>
+          <button type="button" className="btn-secondary" onClick={() => navigate(lessonId ? `/lessons/${lessonId}` : "/modules")}>Cancel</button>
         </div>
       </div>
     </div>

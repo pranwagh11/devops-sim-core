@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { storage } from "../storage";
+import { useAuth } from "../auth";
 import HostBuilder, { emptyHostBuilder, HostBuilderValue } from "../components/HostBuilder";
 import ObjectiveBuilder from "../components/ObjectiveBuilder";
 import HintsBuilder from "../components/HintsBuilder";
@@ -16,24 +17,34 @@ import {
   extractObjectiveRows,
   ObjectiveRow,
 } from "../builderUtils";
-import { HostState, NetworkRule, ObjectiveResult } from "../simcore/types";
+import { HostState, NetworkRule, ObjectiveResult, ModuleRecord, LessonRecord } from "../simcore/types";
 
 interface NamedHost {
   name: string;
   builder: HostBuilderValue;
 }
-
 interface NetworkRuleRow {
   from: string;
   to: string;
   port: number | undefined;
   allowed: boolean;
 }
+type Attachment = "lesson" | "module" | "standalone";
 
 export default function ProjectForm() {
   const { id } = useParams();
   const isEdit = !!id;
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
+
+  const [attachment, setAttachment] = useState<Attachment>(
+    searchParams.get("lessonId") ? "lesson" : searchParams.get("moduleId") ? "module" : "standalone"
+  );
+  const [moduleId, setModuleId] = useState(searchParams.get("moduleId") ?? "");
+  const [lessonId, setLessonId] = useState(searchParams.get("lessonId") ?? "");
+  const [modules, setModules] = useState<ModuleRecord[]>([]);
+  const [lessons, setLessons] = useState<LessonRecord[]>([]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -58,6 +69,19 @@ export default function ProjectForm() {
   const hostNames = hosts.map((h) => h.name).filter(Boolean);
 
   useEffect(() => {
+    setModules(storage.listModules());
+    setLessons(storage.listLessons());
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) return;
+    if (lessonId) {
+      const l = storage.getLesson(lessonId);
+      if (l) setModuleId(l.module_id);
+    }
+  }, [lessonId, isEdit]);
+
+  useEffect(() => {
     if (!isEdit) return;
     const p = storage.getProject(id!);
     if (!p) {
@@ -65,16 +89,24 @@ export default function ProjectForm() {
       setLoading(false);
       return;
     }
+    if (p.lesson_id) {
+      setAttachment("lesson");
+      setLessonId(p.lesson_id);
+      const l = storage.getLesson(p.lesson_id);
+      if (l) setModuleId(l.module_id);
+    } else if (p.module_id) {
+      setAttachment("module");
+      setModuleId(p.module_id);
+    } else {
+      setAttachment("standalone");
+    }
     setTitle(p.title);
     setDescription(p.description ?? "");
     setDifficulty(p.difficulty ?? "intermediate");
     setXp(p.xp ?? 50);
     const namedHosts: NamedHost[] = Object.entries(p.hosts).map(([name, hs]) => {
       const { dirs, files } = extractFromFs(hs.fs ?? {});
-      return {
-        name,
-        builder: { dirs, files, usersText: formatUsers(hs.users ?? []), services: extractServices(hs.services ?? {}) },
-      };
+      return { name, builder: { dirs, files, usersText: formatUsers(hs.users ?? []), services: extractServices(hs.services ?? {}) } };
     });
     setHosts(namedHosts.length ? namedHosts : [{ name: "web01", builder: emptyHostBuilder() }]);
     setRules((p.network_rules ?? []).map((r) => ({ from: r.from, to: r.to, port: r.port, allowed: r.allowed })));
@@ -84,6 +116,16 @@ export default function ProjectForm() {
     setTestPassed(p.status === "published");
     setLoading(false);
   }, [id, isEdit]);
+
+  if (role !== "admin") {
+    return (
+      <div className="page">
+        <div className="error-banner">Admin access required to create or edit projects.</div>
+      </div>
+    );
+  }
+
+  const lessonsInModule = lessons.filter((l) => l.module_id === moduleId);
 
   const updateHostName = (i: number, name: string) => {
     const next = [...hosts];
@@ -114,9 +156,7 @@ export default function ProjectForm() {
   };
 
   const buildRulesPayload = (): NetworkRule[] =>
-    rules
-      .filter((r) => r.from && r.to && r.port)
-      .map((r) => ({ from: r.from, to: r.to, port: r.port as number, allowed: r.allowed }));
+    rules.filter((r) => r.from && r.to && r.port).map((r) => ({ from: r.from, to: r.to, port: r.port as number, allowed: r.allowed }));
 
   const handleLoadTest = () => {
     setError("");
@@ -140,15 +180,17 @@ export default function ProjectForm() {
 
   const persist = (status: "draft" | "published") => {
     setError("");
+    if (attachment === "lesson" && !lessonId) return setError("Select a lesson, or change the attachment type.");
+    if (attachment === "module" && !moduleId) return setError("Select a module, or change the attachment type.");
     if (!title.trim()) return setError("Title is required.");
     if (hostNames.length === 0) return setError("Add at least one host.");
     const objectives = buildObjectives(objectiveRows);
     if (objectives.length === 0) return setError("Add at least one complete objective.");
-    if (status === "published" && !testPassed) {
-      return setError("You must successfully complete your own test run before publishing.");
-    }
+    if (status === "published" && !testPassed) return setError("You must successfully complete your own test run before publishing.");
 
     const payload = {
+      lesson_id: attachment === "lesson" ? lessonId : null,
+      module_id: attachment === "lesson" ? null : attachment === "module" ? moduleId : null,
       title,
       description,
       difficulty,
@@ -163,7 +205,9 @@ export default function ProjectForm() {
 
     try {
       storage.saveProject(isEdit ? { ...payload, id } : payload);
-      navigate("/projects");
+      if (attachment === "lesson") navigate(`/lessons/${lessonId}`);
+      else if (attachment === "module") navigate(`/modules/${moduleId}`);
+      else navigate("/projects");
     } catch (err) {
       setError((err as Error).message);
     }
@@ -183,6 +227,37 @@ export default function ProjectForm() {
 
       <div className="builder-form">
         <h3>1. Define</h3>
+
+        <div className="field-group">
+          <label>Attach this project to</label>
+          <select value={attachment} onChange={(e) => setAttachment(e.target.value as Attachment)}>
+            <option value="lesson">A specific lesson (shown at the end of that lesson)</option>
+            <option value="module">A whole module (capstone project)</option>
+            <option value="standalone">Standalone (assign manually later, not shown on any module/lesson page)</option>
+          </select>
+        </div>
+
+        {(attachment === "lesson" || attachment === "module") && (
+          <div className="row">
+            <div className="field-group">
+              <label>Module</label>
+              <select value={moduleId} onChange={(e) => { setModuleId(e.target.value); setLessonId(""); }}>
+                <option value="">Select module…</option>
+                {modules.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+              </select>
+            </div>
+            {attachment === "lesson" && (
+              <div className="field-group">
+                <label>Lesson</label>
+                <select value={lessonId} onChange={(e) => setLessonId(e.target.value)} disabled={!moduleId}>
+                  <option value="">Select lesson…</option>
+                  {lessonsInModule.map((l) => <option key={l.id} value={l.id}>{l.title}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="field-group">
           <label>Title</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Three-Tier Web Deployment" />

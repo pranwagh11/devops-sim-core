@@ -15,28 +15,28 @@ interface TerminalProps {
   active?: boolean;
 }
 
+const HEREDOC_START = /<<-?\s*['"]?(\w+)['"]?/;
+
 // Thin wrapper: xterm.js only renders text and captures keystrokes.
 // All Linux/command logic happens in SimCore (commandEngine.ts) — this
-// component just wires keystrokes to that engine, plus a couple of
-// terminal-native conveniences (clear, history, arrow-key recall) that
-// don't belong in SystemState since they're not part of the graded world.
+// component wires keystrokes to that engine, plus terminal-native
+// conveniences (clear, history, arrow-key recall, cursor editing, Ctrl+C,
+// and heredoc line-collection) that don't belong in SystemState since
+// they're not part of the graded world.
 export default function TerminalView({ prompt, onCommand, active = true }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lineBufferRef = useRef<string>("");
+  const cursorPosRef = useRef<number>(0);
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const promptRef = useRef(prompt);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const heredocRef = useRef<{ delimiter: string; headerLine: string; bodyLines: string[] } | null>(null);
 
   useEffect(() => {
     promptRef.current = prompt;
   }, [prompt]);
 
-  // fit() reads layout box dimensions off the container. If the container
-  // is display:none (0x0) or hasn't been painted yet, xterm's internal
-  // renderer dimensions object isn't initialized and fit() throws
-  // "Cannot read properties of undefined (reading 'dimensions')". Always
-  // check for real size and always wrap in try/catch as a last resort.
   const safeFit = () => {
     const el = containerRef.current;
     const addon = fitAddonRef.current;
@@ -63,55 +63,112 @@ export default function TerminalView({ prompt, onCommand, active = true }: Termi
     fitAddonRef.current = fitAddon;
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
-
-    // Defer the first fit until after the browser has painted this
-    // container, so the width/height it reads are real (not the 0x0 a
-    // hidden or not-yet-laid-out container would report synchronously).
     requestAnimationFrame(safeFit);
 
     term.writeln("Simulated terminal — type a command and press Enter. Try 'help' to see all commands.");
-    term.write(`\r\n${prompt} `);
+    term.write(`\r\n${promptRef.current} `);
 
-    const redrawLine = (text: string) => {
-      term.write("\r\x1b[K" + `${promptRef.current} ` + text);
+    const currentPromptText = () => (heredocRef.current ? "> " : `${promptRef.current} `);
+
+    // Full redraw of the line from the terminal's current cursor row,
+    // then reposition the terminal cursor to match cursorPosRef. Needed
+    // for any edit that isn't a simple end-of-line append (mid-line
+    // insert/delete, or restoring a recalled history entry).
+    const refreshLine = () => {
+      const line = lineBufferRef.current;
+      const pos = cursorPosRef.current;
+      term.write("\r\x1b[K" + currentPromptText() + line);
+      const moveLeft = line.length - pos;
+      if (moveLeft > 0) term.write(`\x1b[${moveLeft}D`);
+    };
+
+    const resetLine = (text = "") => {
       lineBufferRef.current = text;
+      cursorPosRef.current = text.length;
     };
 
     term.onData((data) => {
+      // --- Ctrl+C: abort current line / heredoc collection ---
+      if (data === "\u0003") {
+        term.write("^C\r\n");
+        heredocRef.current = null;
+        historyIndexRef.current = -1;
+        resetLine("");
+        term.write(currentPromptText());
+        return;
+      }
+
+      // --- arrow keys ---
       if (data === "\u001b[A") {
-        // Up arrow — recall previous command
+        if (heredocRef.current) return; // no history recall mid-heredoc
         if (historyRef.current.length === 0) return;
         if (historyIndexRef.current === -1) historyIndexRef.current = historyRef.current.length - 1;
         else if (historyIndexRef.current > 0) historyIndexRef.current -= 1;
-        redrawLine(historyRef.current[historyIndexRef.current]);
+        resetLine(historyRef.current[historyIndexRef.current]);
+        refreshLine();
         return;
       }
       if (data === "\u001b[B") {
-        // Down arrow — recall next command / clear line at the end
+        if (heredocRef.current) return;
         if (historyIndexRef.current === -1) return;
         if (historyIndexRef.current < historyRef.current.length - 1) {
           historyIndexRef.current += 1;
-          redrawLine(historyRef.current[historyIndexRef.current]);
+          resetLine(historyRef.current[historyIndexRef.current]);
         } else {
           historyIndexRef.current = -1;
-          redrawLine("");
+          resetLine("");
+        }
+        refreshLine();
+        return;
+      }
+      if (data === "\u001b[D") {
+        if (cursorPosRef.current > 0) {
+          cursorPosRef.current -= 1;
+          term.write("\u001b[D");
         }
         return;
       }
-      if (data === "\u001b[C" || data === "\u001b[D") {
-        // left/right arrow — not supported (no mid-line cursor editing yet)
+      if (data === "\u001b[C") {
+        if (cursorPosRef.current < lineBufferRef.current.length) {
+          cursorPosRef.current += 1;
+          term.write("\u001b[C");
+        }
         return;
       }
 
       const code = data.charCodeAt(0);
+
+      // --- Enter ---
       if (data === "\r") {
         const line = lineBufferRef.current;
-        lineBufferRef.current = "";
+        resetLine("");
         historyIndexRef.current = -1;
         term.write("\r\n");
+
+        if (heredocRef.current) {
+          if (line.trim() === heredocRef.current.delimiter) {
+            const fullCommand = heredocRef.current.headerLine + "\n" + heredocRef.current.bodyLines.join("\n");
+            heredocRef.current = null;
+            const output = onCommand(fullCommand);
+            if (output) term.writeln(output.replace(/\n/g, "\r\n"));
+          } else {
+            heredocRef.current.bodyLines.push(line);
+          }
+          term.write(currentPromptText());
+          return;
+        }
+
         const trimmed = line.trim();
         if (trimmed.length > 0) {
           historyRef.current.push(trimmed);
+
+          const heredocMatch = trimmed.match(HEREDOC_START);
+          if (heredocMatch) {
+            heredocRef.current = { delimiter: heredocMatch[1], headerLine: line, bodyLines: [] };
+            term.write(currentPromptText());
+            return;
+          }
+
           if (trimmed === "clear") {
             term.clear();
           } else if (trimmed === "history") {
@@ -122,27 +179,40 @@ export default function TerminalView({ prompt, onCommand, active = true }: Termi
             if (output) term.writeln(output.replace(/\n/g, "\r\n"));
           }
         }
-        term.write(`${promptRef.current} `);
-      } else if (code === 127) {
-        // Backspace
-        if (lineBufferRef.current.length > 0) {
-          lineBufferRef.current = lineBufferRef.current.slice(0, -1);
-          term.write("\b \b");
+        term.write(currentPromptText());
+        return;
+      }
+
+      // --- Backspace ---
+      if (code === 127) {
+        if (cursorPosRef.current > 0) {
+          const line = lineBufferRef.current;
+          const pos = cursorPosRef.current;
+          lineBufferRef.current = line.slice(0, pos - 1) + line.slice(pos);
+          cursorPosRef.current = pos - 1;
+          refreshLine();
         }
-      } else if (code < 32) {
-        // ignore other control chars
-      } else {
-        lineBufferRef.current += data;
+        return;
+      }
+
+      // --- ignore other control characters ---
+      if (code < 32) return;
+
+      // --- printable input: insert at cursor position ---
+      const line = lineBufferRef.current;
+      const pos = cursorPosRef.current;
+      lineBufferRef.current = line.slice(0, pos) + data + line.slice(pos);
+      cursorPosRef.current = pos + data.length;
+      if (pos === line.length) {
+        // Fast path: appending at the end doesn't need a full redraw.
         term.write(data);
+      } else {
+        refreshLine();
       }
     });
 
     const handleResize = () => safeFit();
     window.addEventListener("resize", handleResize);
-
-    // Also watch the container itself — covers the case where its size
-    // changes for a reason other than a window resize (e.g. a CSS layout
-    // shift when a sibling element appears/disappears).
     const resizeObserver = new ResizeObserver(() => safeFit());
     resizeObserver.observe(containerRef.current);
 
@@ -154,9 +224,6 @@ export default function TerminalView({ prompt, onCommand, active = true }: Termi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-fit whenever this terminal transitions from hidden to visible
-  // (e.g. switching project host tabs). Deferred a frame for the same
-  // reason as the initial fit above.
   useEffect(() => {
     if (active) requestAnimationFrame(safeFit);
     // eslint-disable-next-line react-hooks/exhaustive-deps

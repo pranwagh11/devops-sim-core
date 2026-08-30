@@ -112,6 +112,8 @@ input, select, textarea {
 /* nav extras */
 .nav-spacer { flex: 1; }
 .nav-action { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; margin-left: 8px; }
+.nav-action-danger { border-color: rgba(255,138,138,0.5); color: #ff8a8a; }
+.nav-action-danger:hover { background: rgba(255,138,138,0.15); }
 .nav-action:hover { background: rgba(255,255,255,0.1); }
 .import-message { background: #eef2fb; color: #2f6fed; padding: 8px 24px; font-size: 13px; }
 
@@ -122,3 +124,26 @@ input, select, textarea {
 .snapshot-box { margin: 12px 0; background: #f9fafc; border: 1px solid #e4e8f2; border-radius: 6px; padding: 10px 14px; }
 .snapshot-box summary { cursor: pointer; font-size: 13px; color: #2f6fed; }
 .snapshot-box pre { font-size: 11px; max-height: 280px; overflow: auto; background: #12161f; color: #d3d9e6; padding: 10px; border-radius: 6px; margin-top: 8px; }
+
+/* modules / lessons */
+.module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
+.module-card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.module-card-title { font-size: 16px; font-weight: 700; color: #1a2b4c; text-decoration: none; }
+.module-card-title:hover { text-decoration: underline; }
+.lesson-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.lesson-row { background: #fff; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.lesson-title { font-size: 15px; font-weight: 700; color: #1a2b4c; text-decoration: none; }
+.lesson-title:hover { text-decoration: underline; }
+
+/* auth controls */
+.auth-controls { position: relative; margin-left: 8px; }
+.admin-badge { background: rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; margin-right: 4px; }
+.admin-badge-muted { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); cursor: help; }
+.auth-panel {
+  position: absolute; top: 40px; right: 0; width: 300px; background: #fff; color: #1f2530;
+  border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.2); padding: 16px; z-index: 50; text-align: left;
+}
+.auth-panel-note { font-size: 12px; color: #5a6472; margin-bottom: 10px; line-height: 1.5; }
+.auth-panel .field-group { margin-bottom: 10px; }
+.auth-panel .form-actions { margin-top: 6px; }
+.forgot-key-link { background: none; border: none; color: #b3261e; font-size: 12px; cursor: pointer; margin-top: 10px; padding: 0; text-decoration: underline; }

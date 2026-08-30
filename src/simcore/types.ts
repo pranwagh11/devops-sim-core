@@ -67,8 +67,28 @@ export function makeDefaultHostState(): HostState {
 
 export type ContentStatus = "draft" | "published";
 
+export interface ModuleRecord {
+  id: string;
+  title: string; // e.g. "Linux", "Git", "Docker"
+  description: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LessonRecord {
+  id: string;
+  module_id: string;
+  title: string; // e.g. "Filesystem", "Process Management"
+  description: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChallengeRecord {
   id: string;
+  lesson_id: string;
   title: string;
   description: string;
   difficulty: string;
@@ -87,6 +107,11 @@ export interface ChallengeRecord {
 
 export interface ProjectRecord {
   id: string;
+  // A project normally sits at the end of one lesson (lesson_id set). It
+  // can instead be a module-level capstone (lesson_id null, module_id
+  // set), or fully standalone / instructor-assigned ad hoc (both null).
+  lesson_id: string | null;
+  module_id: string | null;
   title: string;
   description: string;
   difficulty: string;

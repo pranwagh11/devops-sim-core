@@ -1,7 +1,47 @@
 {
+  "modules": [
+    {
+      "id": "module-linux",
+      "title": "Linux",
+      "description": "Core Linux administration: filesystem, permissions, users, and services.",
+      "order": 1,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "lesson-filesystem",
+      "module_id": "module-linux",
+      "title": "Filesystem",
+      "description": "Creating, inspecting, and organizing files and directories.",
+      "order": 1,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "lesson-permissions",
+      "module_id": "module-linux",
+      "title": "Users & Permissions",
+      "description": "Ownership, permission modes, and access control.",
+      "order": 2,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "lesson-services",
+      "module_id": "module-linux",
+      "title": "Service Management",
+      "description": "Starting, stopping, and inspecting simulated services with systemctl.",
+      "order": 3,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    }
+  ],
   "challenges": [
     {
       "id": "seed-challenge-1",
+      "lesson_id": "lesson-filesystem",
       "title": "Create Your First Directory",
       "description": "Create a directory called /home/student/backup and a file inside it named data.txt containing the text \"Linux Backup\".",
       "difficulty": "beginner",
@@ -33,6 +73,7 @@
     },
     {
       "id": "seed-challenge-2",
+      "lesson_id": "lesson-permissions",
       "title": "Fix File Permissions",
       "description": "A deployment script at /opt/deploy.sh exists but isn't executable. Make it executable (mode 755).",
       "difficulty": "beginner",
@@ -56,11 +97,36 @@
       "reference_snapshot": null,
       "created_at": "2026-01-01T00:00:00.000Z",
       "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "seed-challenge-3",
+      "lesson_id": "lesson-services",
+      "title": "Start the Web Server",
+      "description": "The nginx service exists but is not running. Start it, then confirm it's active.",
+      "difficulty": "beginner",
+      "xp": 10,
+      "status": "published",
+      "initial_state": {
+        "fs": { "/": { "type": "dir", "mode": "755" } },
+        "users": ["student"],
+        "currentUser": "student",
+        "services": { "nginx": { "running": false, "port": 80 } },
+        "cwd": "/"
+      },
+      "objectives": [
+        { "type": "service_running", "service": "nginx" }
+      ],
+      "hints": ["Use systemctl start nginx, then systemctl status nginx to confirm."],
+      "reference_snapshot": null,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z"
     }
   ],
   "projects": [
     {
       "id": "seed-project-1",
+      "lesson_id": "lesson-services",
+      "module_id": "module-linux",
       "title": "Three-Tier Web Deployment",
       "description": "Deploy nginx on web01, a backend service on app01, and start the database on db01. Configure networking so web01 can reach app01, and app01 can reach db01.",
       "difficulty": "intermediate",
